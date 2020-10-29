@@ -522,9 +522,14 @@ function ccloud::validate_ccloud_config() {
 }
 
 function ccloud::validate_ksqldb_up() {
-  ksqldb_endpoint=$1
-  ccloud_config_file=$2
-  credentials=$3
+	[ -z "$1" ] && {
+		echo "ccloud::validate_ksqldb_up expects one parameter (ksqldb endpoint)"
+		exit 1
+	}
+
+	[ $# -gt 1 ] && echo "WARN: ccloud::validate_ksqldb_up function expects one parameter"
+
+  local ksqldb_endpoint=$1
 
   ccloud::validate_logged_in_ccloud_cli || exit 1
 
@@ -532,20 +537,22 @@ function ccloud::validate_ksqldb_up() {
     echo "ERROR: Provision a ksqlDB cluster via the Confluent Cloud UI and add the configuration parameter ksql.endpoint and ksql.basic.auth.user.info into your Confluent Cloud configuration file at $ccloud_config_file and try again."
     exit 1
   fi
-  ksqlDBAppId=$(ccloud ksql app list | grep "$ksqldb_endpoint" | awk '{print $1}')
-  if [[ "$ksqlDBAppId" == "" ]]; then
+
+	local ksqldb_meta=$(ccloud ksql app list -o json | jq -r 'map(select(.endpoint == "'"$ksqldb_endpoint"'")) | .[]')
+
+	local ksqldb_appid=$(echo "$ksqldb_meta" | jq -r '.id')
+  if [[ "$ksqldb_appid" == "" ]]; then
     echo "ERROR: Confluent Cloud ksqlDB endpoint $ksqldb_endpoint is not found. Provision a ksqlDB cluster via the Confluent Cloud UI and add the configuration parameter ksql.endpoint and ksql.basic.auth.user.info into your Confluent Cloud configuration file at $ccloud_config_file and try again."
     exit 1
   fi
-  STATUS=$(ccloud ksql app describe $ksqlDBAppId | grep "Status" | grep UP)
-  if [[ "$STATUS" == "" ]]; then
-    echo "ERROR: Confluent Cloud ksqlDB endpoint $ksqldb_endpoint with id $ksqlDBAppId is not in UP state. Troubleshoot and try again."
-    exit 1
-  fi
 
-  ccloud::validate_credentials_ksqldb "$ksqldb_endpoint" "$ccloud_config_file" "$credentials" || exit 1
+	local ksqldb_status=$(echo "$ksqldb_meta" | jq -r '.status')
+  if [[ $ksqldb_status != "UP" ]]; then
+		echo "ERROR: Confluent Cloud ksqlDB endpoint $ksqldb_endpoint with id $ksqlDBAppId is not in UP state. Troubleshoot and try again."
+  	exit 1
+	fi
 
-  return 0
+	return 0
 }
 
 function ccloud::validate_azure_account() {
