@@ -533,11 +533,6 @@ function ccloud::validate_ksqldb_up() {
 
   ccloud::validate_logged_in_ccloud_cli || exit 1
 
-  if [[ "$ksqldb_endpoint" == "" ]]; then
-    echo "ERROR: Provision a ksqlDB cluster via the Confluent Cloud UI and add the configuration parameter ksql.endpoint and ksql.basic.auth.user.info into your Confluent Cloud configuration file at $ccloud_config_file and try again."
-    exit 1
-  fi
-
 	local ksqldb_meta=$(ccloud ksql app list -o json | jq -r 'map(select(.endpoint == "'"$ksqldb_endpoint"'")) | .[]')
 
 	local ksqldb_appid=$(echo "$ksqldb_meta" | jq -r '.id')
