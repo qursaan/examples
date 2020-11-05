@@ -313,7 +313,7 @@ public class OrdersService implements Service {
     setTimeout(timeout, response);
 
     final Order bean = fromBean(order);
-
+    producer.send(new ProducerRecord<>(ORDERS.name(), bean.getId(), bean),callback(response, bean.getId()));
     // TODO 1.1: create a new `ProducerRecord` with a key specified by `bean.getId()` and value of the bean, to the orders topic whose name is specified by `ORDERS.name()`
     // ...
 
