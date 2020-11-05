@@ -87,12 +87,16 @@ public class EmailService implements Service {
     final KStream<String, Order> orders = builder.stream(ORDERS.name(),
         Consumed.with(ORDERS.keySerde(), ORDERS.valueSerde()));
 
-    final KStream<String, Payment> payments_original = builder.stream(PAYMENTS.name(),
-            Consumed.with(PAYMENTS.keySerde(), PAYMENTS.valueSerde()));
+    //final KStream<String, Payment> payments_original = builder.stream(PAYMENTS.name(),
+    //        Consumed.with(PAYMENTS.keySerde(), PAYMENTS.valueSerde()));
 
     // TODO 3.1: create a new `KStream` called `payments` from `payments_original`, using `KStream#selectKey` to rekey on order id specified by `payment.getOrderId()` instead of payment id
     // ...
-
+    final KStream<String, Payment> payments = builder.stream(PAYMENTS.name(),
+            Consumed.with(PAYMENTS.keySerde(), PAYMENTS.valueSerde()))
+            //Rekey payments to be by OrderId for the windowed join
+            .selectKey((s, payment) -> payment.getOrderId());
+    
     final GlobalKTable<Long, Customer> customers = builder.globalTable(CUSTOMERS.name(),
         Consumed.with(CUSTOMERS.keySerde(), CUSTOMERS.valueSerde()));
 
@@ -109,6 +113,7 @@ public class EmailService implements Service {
             // 2) customer Id, specified by `order.getCustomerId()`, using a KeyValueMapper that gets the customer id from the tuple in the record's value
             // 3) method that computes a value for the result record, in this case `EmailTuple::setCustomer`
             // ...
+            .join(customers,(key1, tuple) -> tuple.order.getCustomerId(),EmailTuple::setCustomer)
 
         //Now for each tuple send an email.
         .peek((key, emailTuple)
@@ -119,6 +124,7 @@ public class EmailService implements Service {
     orders.join(customers, (orderId, order) -> order.getCustomerId(), (order, customer) -> new OrderEnriched (order.getId(), order.getCustomerId(), customer.getLevel()))
       // TODO 3.3: route an enriched order record to a topic that is dynamically determined from the value of the customerLevel field of the corresponding customer
       // ...
+      .to((orderId, orderEnriched, record) -> orderEnriched.getCustomerLevel(), Produced.with(ORDERS_ENRICHED.keySerde(), ORDERS_ENRICHED.valueSerde()));
 
     return new KafkaStreams(builder.build(),
             baseStreamsConfig(bootstrapServers, stateDir, SERVICE_APP_ID, defaultConfig));
