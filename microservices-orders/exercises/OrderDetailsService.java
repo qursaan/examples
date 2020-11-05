@@ -81,6 +81,7 @@ public class OrderDetailsService implements Service {
       
       // TODO 2.1: subscribe the local `consumer` to a `Collections#singletonList` with the orders topic whose name is specified by `Topics.ORDERS.name()`
       // ...
+      consumer.subscribe(singletonList(Topics.ORDERS.name()));
 
       if (eosEnabled) {
         producer.initTransactions();
@@ -100,13 +101,14 @@ public class OrderDetailsService implements Service {
 
               // TODO 2.2: validate the order using `OrderDetailsService#isValid` and save the validation result to type `OrderValidationResult`
               // ...
-
+              // isValid(order) ? PASS : FAIL;
               // TODO 2.3: create a new record using `OrderDetailsService#result()` that takes the order and validation result
               // ...
-
+              // result(order, isValid(order) ? PASS : FAIL);
               // TODO 2.4: produce the newly created record using the existing `producer`
               // ...
-
+              producer.send(result(order, isValid(order) ? PASS : FAIL));
+              
               if (eosEnabled) {
                 recordOffset(consumedOffsets, record);
               }
